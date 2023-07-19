@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ja">
+<!-- 2023/7/19 課題提出 -->
+<!-- 課題：firebaseを使ったチャット風アプリ -->
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="./css/style.css">
+    <title>Firebase_version9_RealtimeDB(G'sACADEMY初学者用サンプル)</title>
+</head>
+
+<body>
+
+    <!-- コンテンツ表示画面 -->
+    <div class="display_area">
+        <div class="input_area">
+            <h3>～ 行ってみた場所の記録 ～</h3>
+            <div>
+                <label>日付</label><input name="date" type="date" id="date"><br>
+                <label>行ってみた場所：</label><br>
+                <input type="text" id="place">
+            </div>
+            <!-- 画像を選択するフォームを追加 -->
+            <div>
+                <label>画像：</label><br><input type="file" id="imageInput">
+            </div>
+            <div>
+                <label>感想：</label><br>
+                <textarea id="text" cols="30" rows="10"></textarea><br>
+                <button id="send">送信</button>
+            </div>
+        </div>
+        <div id="output" style="overflow: auto;height: 300px;"></div>
+    </div>
+
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script type="module">
+     // Firebase SDKのインポートと初期化
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.1.0/firebase-app.js";
+        import { getDatabase, ref, push, set, onChildAdded, remove, onChildRemoved }
+            from "https://www.gstatic.com/firebasejs/9.1.0/firebase-database.js";
+        import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.1.0/firebase-storage.js";
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey:
+            authDomain:
+            databaseURL:
+            projectId:
+            storageBucket:
+            messagingSenderId:
+            appId:
+            measurementId:
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app); //RealtimeDBに接続
+        const dbRef = ref(db, "chat"); //RealtimeDB内の"chat"を使う
+        const storage = getStorage(app); //Firebase Storageに接続
+
+        //データ登録(Click)
+        $("#send").on("click", async function () {
+            const msg = {
+                date: $("#date").val(),
+                place: $("#place").val(),
+                text: $("#text").val()
+            }
+
+            // 画像を取得
+            const imageFile = document.getElementById("imageInput").files[0];
+            
+            if (imageFile) {
+                // 画像をFirebase Storageにアップロード
+                const imageRef = storageRef(storage, "images/" + imageFile.name);
+                await uploadBytes(imageRef, imageFile);
+
+                // アップロードされた画像のURLを取得
+                const imageUrl = await getDownloadURL(imageRef);
+
+                // メッセージオブジェクトに画像のURLを追加
+                msg.image = imageUrl;
+            }
+
+            const newPostRef = push(dbRef); //ユニークKEYを生成
+            set(newPostRef, msg);           //"chat"にユニークKEYをつけてオブジェクトデータを登録
+            console.log("成功！");
+
+            // 入力欄を空白にする。
+            $("#date").val("");
+            $("#place").val("");
+            $("#text").val("");
+            $("#imageInput").val("");
+        });
+
+        //データ登録(Enter)
+        $("#text").on("keydown", function (e) {
+            console.log(e);        //e変数の中身を確認！！
+            if (e.keyCode == 13) {   //EnterKey=13
+                const msg = {
+                    date: $("#date").val(),
+                    place: $("#place").val(),
+                    text: $("#text").val()
+                }
+                const newPostRef = push(dbRef); //ユニークKEYを生成
+                set(newPostRef, msg);           //"chat"にユニークKEYをつけてオブジェクトデータを登録
+
+                // 入力欄を空白にする。
+                $("#date").val("");
+                $("#place").val("");
+                $("#text").val("");
+                $("#imageInput").val("");
+            }
+        });
+
+        //最初にデータ取得＆onSnapshotでリアルタイムにデータを取得
+        onChildAdded(dbRef, function (data) {
+            const msg = data.val();    //オブジェクトデータを取得し、変数msgに代入
+            const key = data.key;      //データのユニークキー（削除や更新に使用可能）
+            //表示用テキスト・HTMLを作成
+            let h = '<p>';
+            h += '';
+            h += msg.date+" ";
+            // h += '</p>';
+            h += msg.place;
+            if (msg.image) {
+                h += '<br><img src="' + msg.image + '" style="max-width: 300px;">';
+            }
+            h += '<br>';
+            h +='記事：'
+            h += msg.text;
+            h += '</p>';
+            $("#output").append(h); //#outputの最後に追加
+        });
+
+    </script>
+</body>
+</html>
